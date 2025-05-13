@@ -62,3 +62,38 @@ p<-ggplot(df.test, aes(x = pred, y = G3)) +
   theme_minimal()
 
 print(p)
+
+# 4. 讓使用者輸入自己的變數值，留空以中位數(數值)或眾數(類別)補上，並預測 G3
+predict_vars <- setdiff(names(df.train), "G3")
+cat("請依序輸入以下變數的值，一行一個，留空則以中位數(數值)或眾數(類別)補上：\n")
+user_input <- list()
+for (var in predict_vars) {
+  if (is.numeric(df.train[[var]])) {
+    med <- median(df.train[[var]], na.rm = TRUE)
+    val <- readline(sprintf("%s (numeric) [默認 %s]: ", var, med))
+    if (val == "" || is.na(val)) {
+      user_input[[var]] <- med
+    } else {
+      user_input[[var]] <- as.numeric(val)
+    }
+  } else if (is.factor(df.train[[var]])) {
+    levs <- levels(df.train[[var]])
+    mode_val <- names(sort(table(df.train[[var]]), decreasing = TRUE))[1]
+    cat(sprintf("%s (categorical)，可選值: %s [默認 %s]\n", var, paste(levs, collapse = "/"), mode_val))
+    val <- readline(sprintf("%s: ", var))
+    if (!(val %in% levs)) {
+      user_input[[var]] <- mode_val
+    } else {
+      user_input[[var]] <- val
+    }
+  }
+}
+new_df <- as.data.frame(user_input, stringsAsFactors = FALSE)
+# 將類別變數轉回 factor 並設定 levels
+for (var in predict_vars) {
+  if (is.factor(df.train[[var]])) {
+    new_df[[var]] <- factor(new_df[[var]], levels = levels(df.train[[var]]))
+  }
+}
+pred_user <- predict(model, newdata = new_df)
+cat("預測的 G3 分數為:", round(pred_user, 1), "\n")
