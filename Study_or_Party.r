@@ -63,37 +63,49 @@ p<-ggplot(df.test, aes(x = pred, y = G3)) +
 
 print(p)
 
-# 4. 讓使用者輸入自己的變數值，留空以中位數(數值)或眾數(類別)補上，並預測 G3
+# 4. 先詢問詳細版或精簡版
+cat("請選擇分析版本：1. 詳細版分析；2. 精簡版分析\n")
+choice <- readline("輸入 1 或 2: ")
+# 定義所有預測變數
 predict_vars <- setdiff(names(df.train), "G3")
+# 若選擇精簡版，只提示以下變數，其餘自動填中位數/眾數
+if (choice == "2") {
+  input_vars <- c("G2", "G1", "Medu", "Fedu", "higher", "reason", "address", "paid", "studytime", "absences")
+} else {
+  input_vars <- predict_vars
+}
+# 開始收集輸入
 cat("請依序輸入以下變數的值，一行一個，留空則以中位數(數值)或眾數(類別)補上：\n")
 user_input <- list()
 for (var in predict_vars) {
+  # 計算中位數或眾數
   if (is.numeric(df.train[[var]])) {
     med <- median(df.train[[var]], na.rm = TRUE)
-    val <- readline(sprintf("%s (numeric) [默認 %s]: ", var, med))
-    if (val == "" || is.na(val)) {
-      user_input[[var]] <- med
+    if (var %in% input_vars) {
+      val <- readline(sprintf("%s (numeric) [默認 %s]: ", var, med))
+      user_input[[var]] <- if (val == "" || is.na(val)) med else as.numeric(val)
     } else {
-      user_input[[var]] <- as.numeric(val)
+      user_input[[var]] <- med
     }
   } else if (is.factor(df.train[[var]])) {
     levs <- levels(df.train[[var]])
     mode_val <- names(sort(table(df.train[[var]]), decreasing = TRUE))[1]
-    cat(sprintf("%s (categorical)，可選值: %s [默認 %s]\n", var, paste(levs, collapse = "/"), mode_val))
-    val <- readline(sprintf("%s: ", var))
-    if (!(val %in% levs)) {
-      user_input[[var]] <- mode_val
+    if (var %in% input_vars) {
+      cat(sprintf("%s (categorical)，可選值: %s [默認 %s]\n", var, paste(levs, collapse = "/"), mode_val))
+      val <- readline(sprintf("%s: ", var))
+      user_input[[var]] <- if (val %in% levs) val else mode_val
     } else {
-      user_input[[var]] <- val
+      user_input[[var]] <- mode_val
     }
   }
 }
+# 建立新資料框並轉回 factor
 new_df <- as.data.frame(user_input, stringsAsFactors = FALSE)
-# 將類別變數轉回 factor 並設定 levels
 for (var in predict_vars) {
   if (is.factor(df.train[[var]])) {
     new_df[[var]] <- factor(new_df[[var]], levels = levels(df.train[[var]]))
   }
 }
+# 預測並輸出結果
 pred_user <- predict(model, newdata = new_df)
 cat("預測的 G3 分數為:", round(pred_user, 1), "\n")
