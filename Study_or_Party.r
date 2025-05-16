@@ -56,10 +56,13 @@ cat("Train R-squared:", round(trainR2, 3), "\n")
 p<-ggplot(df.test, aes(x = pred, y = G3)) +
   geom_point(alpha = 0.6) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  scale_x_continuous(breaks = seq(5, 20, 1)) +
+  scale_y_continuous(breaks = seq(5, 20, 1)) +
   labs(title = "Predicted vs Actual G3",
        x = "Predicted G3",
        y = "Actual G3") +
   theme_minimal()
+  
 
 print(p)
 
@@ -70,7 +73,7 @@ choice <- readline("輸入 1 或 2: ")
 predict_vars <- setdiff(names(df.train), "G3")
 # 若選擇精簡版，只提示以下變數，其餘自動填中位數/眾數
 if (choice == "2") {
-  input_vars <- c("G2", "G1", "Medu", "Fedu", "higher", "reason", "address", "paid", "studytime", "absences")
+  input_vars <- c("G2", "G1", "failures", "age", "goout", "Medu", "Fedu", "higher", "reason", "traveltime", "address", "studytime")
 } else {
   input_vars <- predict_vars
 }
@@ -82,8 +85,22 @@ for (var in predict_vars) {
   if (is.numeric(df.train[[var]])) {
     med <- median(df.train[[var]], na.rm = TRUE)
     if (var %in% input_vars) {
-      val <- readline(sprintf("%s (numeric) [默認 %s]: ", var, med))
-      user_input[[var]] <- if (val == "" || is.na(val)) med else as.numeric(val)
+      # 計算該變數的最小和最大值作為可接受範圍
+      min_val <- min(df.train[[var]], na.rm = TRUE)
+      max_val <- max(df.train[[var]], na.rm = TRUE)
+      while(TRUE) {
+        val <- readline(sprintf("%s (numeric, 範圍 %s - %s) [默認 %s]: ", var, min_val, max_val, med))
+        if (val == "" || is.na(val)) {
+          val_num <- med
+          break
+        }
+        val_num <- suppressWarnings(as.numeric(val))
+        if (!is.na(val_num) && val_num >= min_val && val_num <= max_val) {
+          break
+        }
+        cat(sprintf("輸入不合法，請輸入 %s 到 %s 之間的數字。\n", min_val, max_val))
+      }
+      user_input[[var]] <- val_num
     } else {
       user_input[[var]] <- med
     }
@@ -92,8 +109,19 @@ for (var in predict_vars) {
     mode_val <- names(sort(table(df.train[[var]]), decreasing = TRUE))[1]
     if (var %in% input_vars) {
       cat(sprintf("%s (categorical)，可選值: %s [默認 %s]\n", var, paste(levs, collapse = "/"), mode_val))
-      val <- readline(sprintf("%s: ", var))
-      user_input[[var]] <- if (val %in% levs) val else mode_val
+      while(TRUE) {
+        val <- readline(sprintf("%s: ", var))
+        if (val == "") {
+          val_chr <- mode_val
+          break
+        }
+        if (val %in% levs) {
+          val_chr <- val
+          break
+        }
+        cat(sprintf("輸入不合法，可選值：%s\n", paste(levs, collapse = "/")))
+      }
+      user_input[[var]] <- val_chr
     } else {
       user_input[[var]] <- mode_val
     }
